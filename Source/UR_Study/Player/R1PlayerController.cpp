@@ -5,6 +5,10 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "System/R1AssetManager.h"
+#include "Data/R1InputData.h"
+#include "R1GameplayTags.h"
+#include "Character/R1Player.h"
 
 AR1PlayerController::AR1PlayerController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -15,9 +19,12 @@ void AR1PlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+	if (const UR1InputData* InputData = UR1AssetManager::GetAssetByName<UR1InputData>("InputData"))
 	{
-		Subsystem->AddMappingContext(InputMappingContext, 0);
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+		{
+			Subsystem->AddMappingContext(InputData->InputMappingContext, 0);
+		}
 	}
 }
 
@@ -25,18 +32,25 @@ void AR1PlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 
-	if (auto* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
+	if (const UR1InputData* InputData = UR1AssetManager::GetAssetByName<UR1InputData>("InputData"))
 	{
-		EnhancedInputComponent->BindAction(TestAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Test);
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Move);
-		EnhancedInputComponent->BindAction(TurnAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Turn);
-	}
-}
+		UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
 
-// CallBack
-void AR1PlayerController::Input_Test(const FInputActionValue& InputValue)
-{
-	GEngine->AddOnScreenDebugMessage(0, 1.0f, FColor::Cyan, TEXT("Test"));
+		auto Action1 = InputData->FindInputActionByTag(R1GameplayTags::Input_Action_Move);
+		EnhancedInputComponent->BindAction(Action1, ETriggerEvent::Triggered, this, &ThisClass::Input_Move);
+
+		auto Action2 = InputData->FindInputActionByTag(R1GameplayTags::Input_Action_Turn);
+		EnhancedInputComponent->BindAction(Action2, ETriggerEvent::Triggered, this, &ThisClass::Input_Turn);
+
+		auto Action3 = InputData->FindInputActionByTag(R1GameplayTags::Input_Action_Jump);
+		EnhancedInputComponent->BindAction(Action3, ETriggerEvent::Triggered, this, &ThisClass::Input_Jump);
+
+		auto Action4 = InputData->FindInputActionByTag(R1GameplayTags::Input_Action_Attack);
+		EnhancedInputComponent->BindAction(Action4, ETriggerEvent::Triggered, this, &ThisClass::Input_Attack);
+
+		//EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Move);
+		//EnhancedInputComponent->BindAction(TurnAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Turn);
+	}
 }
 
 // CallBack
@@ -72,4 +86,18 @@ void AR1PlayerController::Input_Turn(const FInputActionValue& InputValue)
 	// X만 사용하겠다 싶을 때 이렇게 가져올 수 있음
 	float Val = InputValue.Get<float>();
 	AddYawInput(Val);
+}
+
+void AR1PlayerController::Input_Jump(const FInputActionValue& InputValue)
+{
+	if (AR1Character* MyPlayer = Cast<AR1Character>(GetPawn()))
+	{
+		MyPlayer->Jump();
+	}
+
+}
+
+void AR1PlayerController::Input_Attack(const FInputActionValue& InputValue)
+{
+	UE_LOG(LogTemp, Log, TEXT("Attack"));
 }
